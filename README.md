@@ -1,24 +1,30 @@
-# Scanner
+# Document Scanner
 
-An Android receipt/document scanner. Point the camera at a receipt and it
-captures, detects the edges, and flattens it into a clean image — ready to
-share, or (later) to send to a server for OCR / field extraction.
+An Android document scanner. Point the camera at a document and ML Kit
+captures it, detects the edges, and flattens it into a clean page — then share
+it as an image or a PDF.
 
 ## How it works
 
-The scan flow is powered by **Google ML Kit's Document Scanner** (delivered
-through Google Play services): live edge detection, auto-capture, crop/rotate,
-and cleanup filters, returning a flattened JPEG. The app wraps that with its
-own home screen, result screen, sharing, and an extension point for
-server-side OCR.
+Capture and editing are powered by **Google ML Kit's Document Scanner**
+(delivered through Google Play services): live edge detection, auto-capture,
+multi-page capture, per-page crop/rotate, cleanup filters, and gallery import.
+ML Kit hands back the flattened pages as JPEGs **and** as a ready-made PDF; the
+app wraps that with a home screen, a result/preview screen, and sharing.
 
-Flow: **Home → ML Kit scan → Result (share / scan again)**
+Flow: **Home → ML Kit scan → Result (share as image / PDF, or scan again)**
+
+- A single-page scan can be shared as an **image** or a **PDF**.
+- A multi-page scan is shared as a **PDF** (one file, all pages).
+
+Each scan is one ML Kit session, and the app keeps only the latest scan — to
+change a page, scan again.
 
 ## Tech stack
 
 - Kotlin 2.1 · Jetpack Compose (Material 3)
 - ML Kit Document Scanner (`com.google.android.gms:play-services-mlkit-document-scanner`)
-- minSdk 26 · compileSdk 35 · AGP 8.7 / Gradle 8.11
+- minSdk 26 · compileSdk 35 · AGP 8.7.3 / Gradle 8.11.1
 
 ## Build & run
 
@@ -41,10 +47,10 @@ com.scanner.app
 ├── MainActivity.kt           # Compose entry point
 ├── ui/
 │   ├── ScannerApp.kt         # Top-level: Home <-> Result
-│   ├── ScanViewModel.kt      # Holds the current scan
-│   ├── HomeScreen.kt         # Launches the ML Kit scanner
-│   ├── ResultScreen.kt       # Shows the scan; share / scan again
-│   ├── ImageSaver.kt         # Share via FileProvider
+│   ├── ScanViewModel.kt      # Holds the latest scan result (+ ScanResult model)
+│   ├── ScanScreen.kt         # Home (launch scanner) + Result (preview, share)
+│   ├── PageImporter.kt       # Copies ML Kit's JPEG/PDF output into shareable cache; preview decode
+│   ├── ImageSaver.kt         # Shares a file (image or PDF) via FileProvider
 │   └── theme/                # Compose theme
 └── ocr/
     ├── OcrService.kt         # Interface for field extraction (the future server step)
@@ -53,7 +59,8 @@ com.scanner.app
 
 ## Future: server-side OCR
 
-The on-device flow produces a flattened bitmap. To extract fields (merchant,
-date, total, …), implement `OcrService.extract(bitmap)` in `RemoteOcrService`:
-upload the image to your endpoint and map the response into `ReceiptFields`.
-Until then it returns `OcrResult.NotConfigured`.
+Each scanned page is a flattened JPEG on disk. To extract structured fields
+(merchant, date, total, …), implement `OcrService.extract(bitmap)` in
+`RemoteOcrService`: decode a page (e.g. via `PageImporter.decodeScaled`), upload
+it to your endpoint, and map the response into `ExtractedFields`. Until then it
+returns `OcrResult.NotConfigured`.

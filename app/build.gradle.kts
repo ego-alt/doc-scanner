@@ -62,12 +62,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // CameraX
-    implementation("androidx.camera:camera-core:1.4.1")
-    implementation("androidx.camera:camera-camera2:1.4.1")
-    implementation("androidx.camera:camera-lifecycle:1.4.1")
-    implementation("androidx.camera:camera-view:1.4.1")
-
     // ML Kit Document Scanner — on-device capture, edge detection, crop & filters
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
 

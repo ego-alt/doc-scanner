@@ -2,8 +2,8 @@ package com.scanner.app.ocr
 
 import android.graphics.Bitmap
 
-/** Structured fields extracted from a receipt. Extend as the backend grows. */
-data class ReceiptFields(
+/** Structured fields extracted from a scanned document. Extend as the backend grows. */
+data class ExtractedFields(
     val merchant: String? = null,
     val date: String? = null,
     val total: String? = null,
@@ -12,7 +12,7 @@ data class ReceiptFields(
 )
 
 sealed interface OcrResult {
-    data class Success(val fields: ReceiptFields) : OcrResult
+    data class Success(val fields: ExtractedFields) : OcrResult
     data class Failure(val message: String) : OcrResult
 
     /** No OCR backend is wired up yet. */
@@ -20,7 +20,7 @@ sealed interface OcrResult {
 }
 
 /**
- * Extracts structured fields from a flattened receipt image.
+ * Extracts structured fields from a flattened document image.
  *
  * The on-device pipeline (capture -> detect -> flatten) produces a clean,
  * front-facing bitmap and hands it here. Implementations may run locally or

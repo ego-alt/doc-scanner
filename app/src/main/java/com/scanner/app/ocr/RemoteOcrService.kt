@@ -6,12 +6,12 @@ import android.graphics.Bitmap
  * Placeholder for the future server-side OCR / vision step.
  *
  * When the backend is ready, implement [extract] to upload [bitmap] to your
- * endpoint and map the response into [ReceiptFields]. A typical wiring:
+ * endpoint and map the response into [ExtractedFields]. A typical wiring:
  *
  *   1. Compress the bitmap to JPEG into a ByteArray.
  *   2. POST it to your endpoint (Retrofit/OkHttp or HttpURLConnection),
  *      e.g. as multipart/form-data.
- *   3. Parse the JSON response and return OcrResult.Success(ReceiptFields(...)).
+ *   3. Parse the JSON response and return OcrResult.Success(ExtractedFields(...)).
  *
  * Until then this returns [OcrResult.NotConfigured] so callers can show a
  * "coming soon" state instead of crashing.

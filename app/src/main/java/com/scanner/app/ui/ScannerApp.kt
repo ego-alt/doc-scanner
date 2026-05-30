@@ -5,13 +5,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun ScannerApp(viewModel: ScanViewModel = viewModel()) {
-    val scanned = viewModel.scanned
-    if (scanned == null) {
-        HomeScreen(onScanned = viewModel::onScanned)
-    } else {
-        ResultScreen(
-            bitmap = scanned,
-            onNewScan = viewModel::reset
-        )
-    }
+    ScanScreen(
+        result = viewModel.result,
+        onResult = viewModel::update,
+        onClear = viewModel::clear
+    )
 }
