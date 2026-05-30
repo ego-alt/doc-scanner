@@ -24,7 +24,7 @@ object PageImporter {
         }
         if (pages.isEmpty()) return null
         val pdf = pdfUri?.let { copyToCache(context, it, PDFS_DIR, "scan_$stamp.pdf") }
-        return ScanResult(pages, pdf)
+        return ScanResult(pages, pdf, stamp)
     }
 
     private fun copyToCache(context: Context, uri: Uri, subdir: String, name: String): File? {

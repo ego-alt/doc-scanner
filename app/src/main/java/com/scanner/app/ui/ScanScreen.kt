@@ -1,6 +1,8 @@
 package com.scanner.app.ui
 
 import android.app.Activity
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
@@ -30,6 +32,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -57,22 +62,37 @@ import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
+import com.scanner.app.calendar.CalendarHealth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 
 private const val PREVIEW_MAX = 1400
 
 @Composable
 fun ScanScreen(
     result: ScanResult?,
+    extracting: Boolean,
+    extractDatesEnabled: Boolean,
+    isoDate: String,
+    isoTime: String,
+    dateNote: String?,
+    calendar: CalendarUiState,
     onResult: (ScanResult) -> Unit,
+    onSetExtractDates: (Boolean) -> Unit,
+    onCorrectDate: (String) -> Unit,
+    onCorrectTime: (String) -> Unit,
+    onConnectCalendar: (Boolean) -> Unit,
+    onSaveCalendarConfig: (String, String) -> Unit,
+    onUpload: () -> Unit,
     onClear: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     val scannerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -135,11 +155,34 @@ fun ScanScreen(
                 ResultContent(
                     result = current,
                     busy = busy,
+                    extracting = extracting,
+                    showDate = extractDatesEnabled,
+                    isoDate = isoDate,
+                    isoTime = isoTime,
+                    dateNote = dateNote,
+                    canUpload = calendar.enabled && calendar.health == CalendarHealth.Up,
+                    uploadState = calendar.uploadState,
                     onScanAgain = { startScan() },
-                    onShareImage = { ImageSaver.shareFile(context, it, "image/jpeg") },
-                    onSharePdf = { ImageSaver.shareFile(context, it, "application/pdf") },
+                    onEditDate = { showDatePicker(context, isoDate, onCorrectDate) },
+                    onEditTime = { showTimePicker(context, isoTime, onCorrectTime) },
+                    onUpload = onUpload,
+                    onShareImage = { file ->
+                        ImageSaver.shareFile(context, file, "image/jpeg", "$isoDate-$isoTime.jpg")
+                    },
+                    onSharePdf = { file ->
+                        ImageSaver.shareFile(context, file, "application/pdf", "$isoDate-$isoTime.pdf")
+                    },
                     onClose = onClear
                 )
+            }
+
+            IconButton(
+                onClick = { showSettings = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+            ) {
+                Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Color.White)
             }
         }
 
@@ -156,6 +199,17 @@ fun ScanScreen(
             ) {
                 CircularProgressIndicator(color = Color.White)
             }
+        }
+
+        if (showSettings) {
+            SettingsScreen(
+                extractDates = extractDatesEnabled,
+                onToggleExtractDates = onSetExtractDates,
+                calendar = calendar,
+                onConnectCalendar = onConnectCalendar,
+                onSaveCalendarConfig = onSaveCalendarConfig,
+                onClose = { showSettings = false }
+            )
         }
     }
 }
@@ -192,7 +246,17 @@ private fun EmptyState(onScan: () -> Unit, modifier: Modifier = Modifier) {
 private fun ResultContent(
     result: ScanResult,
     busy: Boolean,
+    extracting: Boolean,
+    showDate: Boolean,
+    isoDate: String,
+    isoTime: String,
+    dateNote: String?,
+    canUpload: Boolean,
+    uploadState: UploadState,
     onScanAgain: () -> Unit,
+    onEditDate: () -> Unit,
+    onEditTime: () -> Unit,
+    onUpload: () -> Unit,
     onShareImage: (File) -> Unit,
     onSharePdf: (File) -> Unit,
     onClose: () -> Unit
@@ -235,6 +299,20 @@ private fun ResultContent(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (showDate) {
+                DateSection(
+                    extracting = extracting,
+                    isoDate = isoDate,
+                    isoTime = isoTime,
+                    note = dateNote,
+                    enabled = !busy,
+                    onEditDate = onEditDate,
+                    onEditTime = onEditTime
+                )
+            }
+            if (canUpload) {
+                UploadSection(uploadState = uploadState, onUpload = onUpload)
+            }
             if (singlePage) {
                 Button(
                     onClick = { onShareImage(result.pages.first()) },
@@ -260,6 +338,83 @@ private fun ResultContent(
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Scan again") }
+        }
+    }
+}
+
+@Composable
+private fun DateSection(
+    extracting: Boolean,
+    isoDate: String,
+    isoTime: String,
+    note: String?,
+    enabled: Boolean,
+    onEditDate: () -> Unit,
+    onEditTime: () -> Unit
+) {
+    if (extracting) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = Color.White,
+                strokeWidth = 2.dp
+            )
+            Text("Reading date…", color = Color.White)
+        }
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (note != null) {
+            Text(text = note, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onEditDate, enabled = enabled, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Filled.Event, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(isoDate)
+            }
+            OutlinedButton(onClick = onEditTime, enabled = enabled, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(formatTime(isoTime))
+            }
+        }
+    }
+}
+
+@Composable
+private fun UploadSection(uploadState: UploadState, onUpload: () -> Unit) {
+    when (uploadState) {
+        UploadState.Uploading -> {
+            Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text("Uploading…")
+            }
+        }
+        UploadState.Done -> {
+            Text("Uploaded to calendar ✓", color = Color(0xFF00E0B0), fontSize = 14.sp)
+            OutlinedButton(onClick = onUpload, modifier = Modifier.fillMaxWidth()) {
+                Text("Upload again")
+            }
+        }
+        is UploadState.Error -> {
+            Text(uploadState.message, color = Color(0xFFFF8A80), fontSize = 13.sp)
+            Button(onClick = onUpload, modifier = Modifier.fillMaxWidth()) {
+                Text("Upload to calendar")
+            }
+        }
+        UploadState.Idle -> {
+            Button(onClick = onUpload, modifier = Modifier.fillMaxWidth()) {
+                Text("Upload to calendar")
+            }
         }
     }
 }
@@ -291,6 +446,39 @@ private fun PagePreview(file: File) {
             CircularProgressIndicator(color = Color.White)
         }
     }
+}
+
+/** Display "HHmm" as "HH:mm". */
+private fun formatTime(isoTime: String): String =
+    if (isoTime.length == 4) "${isoTime.substring(0, 2)}:${isoTime.substring(2, 4)}" else isoTime
+
+/** Platform date picker, seeded from [isoDate] ("yyyy-MM-dd"); reports back the same format. */
+private fun showDatePicker(context: Context, isoDate: String, onPicked: (String) -> Unit) {
+    val parts = isoDate.split("-")
+    val year = parts.getOrNull(0)?.toIntOrNull() ?: 2000
+    val month = (parts.getOrNull(1)?.toIntOrNull() ?: 1).coerceIn(1, 12)
+    val day = (parts.getOrNull(2)?.toIntOrNull() ?: 1).coerceIn(1, 31)
+    DatePickerDialog(
+        context,
+        { _, y, m, d -> onPicked(String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)) },
+        year,
+        month - 1,
+        day
+    ).show()
+}
+
+/** Platform time picker, seeded from [isoTime] ("HHmm"); reports back the same format. */
+private fun showTimePicker(context: Context, isoTime: String, onPicked: (String) -> Unit) {
+    val hour = (isoTime.take(2).toIntOrNull() ?: 0).coerceIn(0, 23)
+    val minute = (isoTime.drop(2).take(2).toIntOrNull() ?: 0).coerceIn(0, 59)
+    val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+    TimePickerDialog(
+        context,
+        { _, h, m -> onPicked(String.format(Locale.US, "%02d%02d", h, m)) },
+        hour,
+        minute,
+        is24Hour
+    ).show()
 }
 
 private fun Context.findActivity(): Activity? {

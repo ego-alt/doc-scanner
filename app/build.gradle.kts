@@ -67,6 +67,15 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+
+    // HTTP client for the optional calendar upload (multipart + TLS config)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // On-device OCR + date extraction (text recognition is bundled/offline; entity extraction
+    // downloads a small language model on first use). No backend.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:entity-extraction:16.0.0-beta6")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

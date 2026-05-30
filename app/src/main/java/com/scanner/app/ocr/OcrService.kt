@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 data class ExtractedFields(
     val merchant: String? = null,
     val date: String? = null,
+    val isoDate: String? = null,
+    val isoTime: String? = null,
     val total: String? = null,
     val rawText: String = "",
     val extra: Map<String, String> = emptyMap()
