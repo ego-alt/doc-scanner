@@ -182,11 +182,12 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             uploadState = UploadState.Error("Add an API token in Settings first.")
             return
         }
-        // Prefer the combined PDF (covers multi-page); fall back to the single image.
+        // Single-page scans go up as a JPG; multi-page keeps the combined PDF so every page travels in one file.
         val pdf = current.pdf
-        val file = pdf ?: current.pages.firstOrNull() ?: return
-        val ext = if (pdf != null) "pdf" else "jpg"
-        val mime = if (pdf != null) "application/pdf" else "image/jpeg"
+        val useJpg = current.pages.size <= 1 || pdf == null
+        val file = (if (useJpg) current.pages.firstOrNull() else pdf) ?: return
+        val ext = if (useJpg) "jpg" else "pdf"
+        val mime = if (useJpg) "image/jpeg" else "application/pdf"
         val fileName = "$effectiveIsoDate-$effectiveIsoTime.$ext"
         uploadJob?.cancel()
         uploadState = UploadState.Uploading
