@@ -25,8 +25,8 @@ sealed interface UploadResult {
  * dashboard nginx) for the optional "upload scan to calendar" feature.
  *
  * Auth is a dashboard API token sent as `Authorization: Bearer <token>`; nginx's
- * auth_request validates it and forwards the user to the calendar, which attaches
- * the file to that date's entry. The host is reached over its Tailscale `*.ts.net`
+ * auth_request validates it and forwards the user to the calendar, which puts the
+ * file on that date (and on the entry its time falls in, when the time is known). The host is reached over its Tailscale `*.ts.net`
  * name (a publicly-trusted TLS cert), so no custom CA or trust config is needed here.
  */
 class CalendarClient {
@@ -46,14 +46,18 @@ class CalendarClient {
         if (ok) CalendarHealth.Up else CalendarHealth.Down
     }
 
-    /** Upload [file] as an attachment onto [isoDate]'s calendar entry. */
+    /**
+     * Upload [file] onto [isoDate]'s day in the calendar. With [isoTime] ("HHmm", read off the
+     * document), the calendar also links it to the entry that time falls in.
+     */
     suspend fun upload(
         baseUrl: String,
         token: String,
         file: File,
         mimeType: String,
         fileName: String,
-        isoDate: String
+        isoDate: String,
+        isoTime: String?
     ): UploadResult = withContext(Dispatchers.IO) {
         val parts = isoDate.split("-")
         if (parts.size != 3) return@withContext UploadResult.Failure("Invalid date.")
@@ -63,6 +67,7 @@ class CalendarClient {
             .addFormDataPart("year", year)
             .addFormDataPart("month", month)
             .addFormDataPart("day", day)
+            .apply { if (isoTime != null) addFormDataPart("time", isoTime) }
             .addFormDataPart("file", fileName, file.asRequestBody(mimeType.toMediaType()))
             .build()
 

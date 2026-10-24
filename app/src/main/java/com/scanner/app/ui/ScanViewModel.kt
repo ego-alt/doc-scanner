@@ -112,6 +112,10 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     val effectiveIsoTime: String
         get() = correctedIsoTime ?: extractedIsoTime ?: formatStamp("HHmm")
 
+    /** The time read off the document (or set by hand), for the calendar to match the scan to an
+     *  entry: never the scan-time fallback, which says nothing about when it was spent. */
+    private val receiptIsoTime: String? get() = correctedIsoTime ?: extractedIsoTime
+
     /** A hint shown when the date wasn't detected (and the user hasn't set one yet), else null. */
     val dateNote: String?
         get() {
@@ -193,7 +197,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         uploadState = UploadState.Uploading
         uploadJob = viewModelScope.launch {
             uploadState = when (
-                val r = calendar.upload(calendarBaseUrl, calendarToken, file, mime, fileName, effectiveIsoDate)
+                val r = calendar.upload(calendarBaseUrl, calendarToken, file, mime, fileName, effectiveIsoDate, receiptIsoTime)
             ) {
                 is UploadResult.Success -> UploadState.Done
                 is UploadResult.Failure -> UploadState.Error(r.message)
