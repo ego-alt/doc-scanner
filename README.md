@@ -61,8 +61,11 @@ com.scanner.app
 │   ├── OcrService.kt         # Extraction interface + ExtractedFields model
 │   ├── OnDeviceOcrService.kt # On-device ML Kit text recognition + date extraction
 │   └── RemoteOcrService.kt   # Stub for a future server backend (richer fields)
-└── calendar/
-    └── CalendarClient.kt     # Health probe + multipart upload to the home calendar
+├── calendar/
+│   └── CalendarClient.kt     # Health probe + multipart upload to the home calendar
+├── update/
+│   └── UpdateClient.kt       # Asks the home stack for a newer build, downloads it, opens the installer
+└── HomeServer.kt             # URLs on the home stack, from the server address in Settings
 ```
 
 ## Field extraction
@@ -101,3 +104,32 @@ the `YYYY-MM-DD-HHMM` name, on the (possibly corrected) extracted date.
 Tailscale provisions a real, publicly-trusted TLS cert for the `*.ts.net` name,
 so the app needs no bundled CA or network-security-config — just the `INTERNET`
 permission and tailnet connectivity to the host.
+
+## Releases and updates
+
+The app installs and updates from the home stack, not a store: the [dashboard](../dashboard)
+lists it under **Services → Phone apps** (from `homestack.toml`).
+
+- **Every push to `main` is a release.** CI (`.github/workflows/ci.yml`) builds a signed APK and
+  publishes it on GitHub as `v<versionCode>`, named `1.0.<versionCode>`, with the commit messages
+  since the last release as its notes. The versionCode is the commit count, so it only goes up.
+- **Install** from Services on the phone. Android asks once to allow installs from the browser.
+- **Updates:** with the server URL and API token set in Settings, the app asks the dashboard on
+  launch (`GET /phone-apps/doc-scanner/latest`), shows **Update available** on the home screen,
+  downloads the APK from the Pi and opens Android's installer. The first time, Android asks to allow
+  installs from the scanner. Asking also tells the dashboard which version is installed, so Services
+  shows Update or Up to date.
+
+### Signing
+
+Android only accepts an update signed with the same key as the installed app, so every release is
+signed with one key:
+
+- The key is `~/.android-signing/doc-scanner-release.p12` on the Mac, with its password in
+  `doc-scanner-release.password` next to it, and a copy in `~/keys/` on the Pi (in the encrypted
+  off-site backups). **Don't lose it:** without it, the app can only be reinstalled from scratch.
+- CI reads it from two repository secrets: `SIGNING_KEYSTORE` (the `.p12`, base64) and
+  `SIGNING_PASSWORD`. Without them CI still builds, but publishes nothing.
+- A local build without the key is signed with the debug key; it installs, but won't update a
+  released copy (or be updated by one).
+

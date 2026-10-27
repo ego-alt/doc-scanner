@@ -1,0 +1,7 @@
+# The home stack lists this under Services → Phone apps (see the dashboard's docs/APPS.md).
+title = "Scanner"
+kind = "android"
+package = "com.scanner.app"
+description = "Scan documents to share or file in the calendar"
+icon = "icon.svg"
+accent = "#3ccfac"

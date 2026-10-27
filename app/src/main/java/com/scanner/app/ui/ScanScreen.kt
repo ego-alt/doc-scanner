@@ -63,6 +63,7 @@ import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.scanner.app.calendar.CalendarHealth
+import com.scanner.app.update.Release
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -87,7 +88,10 @@ fun ScanScreen(
     onConnectCalendar: (Boolean) -> Unit,
     onSaveCalendarConfig: (String, String) -> Unit,
     onUpload: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    update: Release?,
+    updateState: UpdateState,
+    onUpdate: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -151,6 +155,9 @@ fun ScanScreen(
             val current = result
             if (current == null) {
                 EmptyState(onScan = { startScan() }, modifier = Modifier.align(Alignment.Center))
+                if (update != null) {
+                    UpdateBanner(update, updateState, onUpdate, Modifier.align(Alignment.BottomCenter))
+                }
             } else {
                 ResultContent(
                     result = current,
@@ -210,6 +217,42 @@ fun ScanScreen(
                 onSaveCalendarConfig = onSaveCalendarConfig,
                 onClose = { showSettings = false }
             )
+        }
+    }
+}
+
+/** A newer build is on the home stack: one tap fetches it and opens Android's installer. */
+@Composable
+private fun UpdateBanner(release: Release, state: UpdateState, onUpdate: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1E1E1E))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("Update available: ${release.versionName}", color = Color.White, style = MaterialTheme.typography.titleSmall)
+        if (release.notes.isNotBlank()) {
+            Text(
+                release.notes.lines().take(4).joinToString("\n"),
+                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (state is UpdateState.Error) {
+            Text(state.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        val downloading = state == UpdateState.Downloading
+        Button(onClick = onUpdate, enabled = !downloading, modifier = Modifier.fillMaxWidth()) {
+            if (downloading) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text("Downloading…")
+            } else {
+                Text("Update")
+            }
         }
     }
 }

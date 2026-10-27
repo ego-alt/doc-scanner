@@ -1,0 +1,55 @@
+name: CI
+
+# Every push to main builds a signed APK and publishes it as a release (tag v<versionCode>, named
+# after versionName, notes from the commits since the last one). The home stack's dashboard offers
+# the newest under Services → Phone apps, and the app offers it as an update.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the version is the commit count, and notes need the last tag
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Signing key
+        id: key
+        env:
+          KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::warning::No SIGNING_KEYSTORE secret: building, but not releasing (see README)."
+            exit 0
+          fi
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.p12"
+          echo "SIGNING_KEYSTORE_FILE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Release
+        if: github.event_name == 'push' && steps.key.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=$(git rev-list --count HEAD)
+          name="1.0.$code"
+          cp app/build/outputs/apk/release/app-release.apk "doc-scanner-$name.apk"
+          last=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          git log --format='- %s' "${last:+$last..}HEAD" | head -30 > notes.md
+          gh release create "v$code" "doc-scanner-$name.apk" --title "$name" --notes-file notes.md --target "$GITHUB_SHA"

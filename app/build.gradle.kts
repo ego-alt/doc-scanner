@@ -4,6 +4,16 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Every commit is a new version: the commit count (CI checks out the full history). A phone only
+// takes an update with a higher versionCode, so this only ever goes up.
+val commitCount: Int = runCatching {
+    providers.exec { commandLine("git", "rev-list", "--count", "HEAD") }.standardOutput.asText.get().trim().toInt()
+}.getOrDefault(1)
+
+// Releases are signed with the one key in CI's secrets (see README): phones refuse an update signed
+// with any other. Without it (a local build), release builds fall back to the debug key.
+val signingKeystore: String? = System.getenv("SIGNING_KEYSTORE_FILE")
+
 android {
     namespace = "com.scanner.app"
     compileSdk = 35
@@ -12,12 +22,24 @@ android {
         applicationId = "com.scanner.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = commitCount
+        versionName = "1.0.$commitCount"
+    }
+
+    signingConfigs {
+        if (signingKeystore != null) {
+            create("release") {
+                storeFile = file(signingKeystore)
+                storePassword = System.getenv("SIGNING_PASSWORD")
+                keyAlias = "release"
+                keyPassword = System.getenv("SIGNING_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

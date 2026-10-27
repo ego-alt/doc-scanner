@@ -1,10 +1,13 @@
 package com.scanner.app.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.scanner.app.update.install
 
 @Composable
 fun ScannerApp(viewModel: ScanViewModel = viewModel()) {
+    val context = LocalContext.current
     ScanScreen(
         result = viewModel.result,
         extracting = viewModel.extracting,
@@ -26,6 +29,9 @@ fun ScannerApp(viewModel: ScanViewModel = viewModel()) {
         onConnectCalendar = viewModel::connectCalendar,
         onSaveCalendarConfig = viewModel::saveCalendarConfig,
         onUpload = viewModel::uploadToCalendar,
-        onClear = viewModel::clear
+        onClear = viewModel::clear,
+        update = viewModel.availableUpdate,
+        updateState = viewModel.updateState,
+        onUpdate = { viewModel.downloadUpdate { apk -> install(context, apk) } }
     )
 }

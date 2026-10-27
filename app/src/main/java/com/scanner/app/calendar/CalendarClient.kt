@@ -1,5 +1,6 @@
 package com.scanner.app.calendar
 
+import com.scanner.app.homeUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -40,7 +41,7 @@ class CalendarClient {
     /** Probe `<base>/calendar/healthz` (open, no auth) to decide whether to offer upload. */
     suspend fun checkHealth(baseUrl: String): CalendarHealth = withContext(Dispatchers.IO) {
         val ok = runCatching {
-            val request = Request.Builder().url("${normalize(baseUrl)}/calendar/healthz").get().build()
+            val request = Request.Builder().url(homeUrl(baseUrl, "/calendar/healthz")).get().build()
             client.newCall(request).execute().use { it.isSuccessful }
         }.getOrDefault(false)
         if (ok) CalendarHealth.Up else CalendarHealth.Down
@@ -72,7 +73,7 @@ class CalendarClient {
             .build()
 
         val request = Request.Builder()
-            .url("${normalize(baseUrl)}/calendar/attachments")
+            .url(homeUrl(baseUrl, "/calendar/attachments"))
             .header("Authorization", "Bearer $token")
             .post(body)
             .build()
@@ -90,6 +91,4 @@ class CalendarClient {
             UploadResult.Failure(e.message ?: "Couldn't reach the calendar.")
         }
     }
-
-    private fun normalize(baseUrl: String): String = baseUrl.trim().trimEnd('/')
 }

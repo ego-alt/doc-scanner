@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="28 28 52 52" width="24" height="24">
+  <!-- The launcher icon's ";)" wink, in one colour for the dashboard tile. -->
+  <circle cx="40" cy="40" r="6" fill="currentColor"/>
+  <circle cx="40" cy="56" r="6" fill="currentColor"/>
+  <path d="M40,61 q-1,5 -6,9" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M60,34 q20,20 0,40" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+</svg>

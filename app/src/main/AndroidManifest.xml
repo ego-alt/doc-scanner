@@ -8,6 +8,9 @@
     <!-- Optional calendar upload talks to the self-hosted home stack over HTTPS. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Updates come from the home stack, not a store: Android's installer asks before each one. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

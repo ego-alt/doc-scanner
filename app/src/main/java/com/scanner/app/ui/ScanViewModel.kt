@@ -12,6 +12,8 @@ import com.scanner.app.calendar.CalendarHealth
 import com.scanner.app.calendar.UploadResult
 import com.scanner.app.ocr.OcrResult
 import com.scanner.app.ocr.OnDeviceOcrService
+import com.scanner.app.update.Release
+import com.scanner.app.update.UpdateClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -35,6 +37,13 @@ sealed interface UploadState {
     data object Uploading : UploadState
     data object Done : UploadState
     data class Error(val message: String) : UploadState
+}
+
+/** A newer build from the home stack, and how fetching it is going. */
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Downloading : UpdateState
+    data class Error(val message: String) : UpdateState
 }
 
 /** Snapshot of calendar-connection state passed to the UI. */
@@ -96,6 +105,19 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     var uploadState by mutableStateOf<UploadState>(UploadState.Idle)
         private set
+
+    private val updates = UpdateClient()
+    private var updateJob: Job? = null
+
+    /** A newer build waiting on the home stack, or null. */
+    var availableUpdate by mutableStateOf<Release?>(null)
+        private set
+    var updateState by mutableStateOf<UpdateState>(UpdateState.Idle)
+        private set
+
+    init {
+        checkForUpdate()
+    }
 
     // User corrections take precedence over what was extracted (or the scan-time fallback).
     private var correctedIsoDate by mutableStateOf<String?>(null)
@@ -165,6 +187,30 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             .putString(KEY_CAL_TOKEN, calendarToken)
             .apply()
         if (calendarEnabled) refreshCalendarHealth()
+        checkForUpdate()
+    }
+
+    /** Ask the home stack for a newer build (with the server and token from Settings). */
+    fun checkForUpdate() {
+        if (calendarBaseUrl.isBlank() || calendarToken.isBlank()) return
+        viewModelScope.launch {
+            availableUpdate = updates.check(getApplication(), calendarBaseUrl, calendarToken)
+        }
+    }
+
+    /** Fetch the newer build, then hand it to [install] (Android's installer takes it from there). */
+    fun downloadUpdate(install: (File) -> Unit) {
+        if (updateState == UpdateState.Downloading) return
+        updateState = UpdateState.Downloading
+        updateJob = viewModelScope.launch {
+            val apk = updates.download(getApplication(), calendarBaseUrl, calendarToken)
+            if (apk == null) {
+                updateState = UpdateState.Error("Couldn't download the update. Try again on your home network or Tailscale.")
+            } else {
+                updateState = UpdateState.Idle
+                install(apk)
+            }
+        }
     }
 
     /** Probe whether the calendar is reachable, so the UI can offer (or hide) upload. */
@@ -242,6 +288,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         resetExtraction()
         healthJob?.cancel()
         uploadJob?.cancel()
+        updateJob?.cancel()
         result?.deleteFiles()
         ocr.close()
         super.onCleared()
